@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{C2D2D310-F876-4958-B142-1219357323C3}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="Imendes.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="Demo\DemoImendes.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="Imendes">
+        <MSBuild Projects="Imendes.dproj"/>
+    </Target>
+    <Target Name="Imendes:Clean">
+        <MSBuild Projects="Imendes.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="Imendes:Make">
+        <MSBuild Projects="Imendes.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="DemoImendes">
+        <MSBuild Projects="Demo\DemoImendes.dproj"/>
+    </Target>
+    <Target Name="DemoImendes:Clean">
+        <MSBuild Projects="Demo\DemoImendes.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="DemoImendes:Make">
+        <MSBuild Projects="Demo\DemoImendes.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="Imendes;DemoImendes"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="Imendes:Clean;DemoImendes:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="Imendes:Make;DemoImendes:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
