@@ -1,4 +1,4 @@
-unit DTImendes;
+﻿unit DTImendes;
 
 interface
 
@@ -7,7 +7,7 @@ uses
   REST.Response.Adapter, System.Generics.Collections;
 
 type TAmbiente = (Homologacao,Producao);
-type TRegime = (SimplesNacional,LucroPresumidoReal);
+type TRegime = (SimplesNacional,LucroPresumido,LucroReal);
 
 type Tretorno = record
   StatusCode:integer;
@@ -15,6 +15,7 @@ type Tretorno = record
 end;
 
 type TRetornoTributos=class
+  // Campos existentes - mantidos para compatibilidade
   StatusCode:integer;
   Mensagem:String;
   Codigo:string;
@@ -25,6 +26,7 @@ type TRetornoTributos=class
   CstPisCofins:string;
   AliqPis:Extended;
   AliqCofins:Extended;
+  ReducaoAliqICMS:Extended;
   CodEFD:string;
   CstIPI:string;
   AliqIPI:Extended;
@@ -33,6 +35,109 @@ type TRetornoTributos=class
   Fcp:Extended;
   CFOPVenda:string;
   CFOPCompra:string;
+  AmpLegal:String;
+  CodBeneficio : string;
+  InicioVigencia : string;
+  FimVigencia : string;
+  IVA : Extended;
+  CSOSN : string;
+
+  // Novos campos do JSON - PIS/COFINS
+  CstPisCofinsEnt:string;
+  NriPisCofins:string;
+  AmpLegalPisCofins:string;
+  DtVigIniPisCofins:string;
+  DtVigFimPisCofins:string;
+
+  // Novos campos do JSON - IPI
+  CstIPIEnt:string;
+  CodEnqIPI:string;
+  ExIPI:string;
+
+  // Novos campos do JSON - CBS
+  CBS_cClassTrib:string;
+  CBS_descrcClassTrib:string;
+  CBS_cst:string;
+  CBS_descrCST:string;
+  CBS_aliquota:Extended;
+  CBS_reducao:Extended;
+  CBS_reducaoBcCBS:Extended;
+  CBS_ampLegal:string;
+  CBS_dtVigIni:string;
+  CBS_dtVigFim:string;
+
+  // Novos campos do JSON - REGRA (campos adicionais)
+  RegraUF:string;
+  RegraExcecao:integer;
+  PICMSPDVRegra:Extended;
+  SimbPDVRegra:string;
+  ReducaoBCICMSST:Extended;
+  AliqICMSST:Extended;
+  PDifer:Extended;
+  Antecipado:string;
+  Desonerado:string;
+  ICMSDeson:Extended;
+  PICMSEfet:Extended;
+  PRedBCEfet:Extended;
+  PercIsencao:Extended;
+  ESTDFinalidade:string;
+  DtVigIniRegra:string;
+  DtVigFimRegra:string;
+  IndicDeduzDesonerado:string;
+
+  // Novos campos do JSON - IBS (dentro de regra)
+  IBS_cClassTrib:string;
+  IBS_descrcClassTrib:string;
+  IBS_cst:string;
+  IBS_descrCST:string;
+  IBS_ibsUF:Extended;
+  IBS_ibsMun:Extended;
+  IBS_reducaoaliqIBS:Extended;
+  IBS_reducaoBcIBS:Extended;
+  IBS_ampLegal:string;
+  IBS_dtVigIni:string;
+  IBS_dtVigFim:string;
+
+  // Campos adicionais do grupo
+  Lista:string;
+  Tipo:string;
+
+  // Novos campos - ISS (Imposto Sobre Servi�os) - se existir
+  ISS_cClassTrib:string;
+  ISS_descrcClassTrib:string;
+  ISS_cst:string;
+  ISS_descrCST:string;
+  ISS_aliquota:Extended;
+  ISS_reducao:Extended;
+  ISS_ampLegal:string;
+  ISS_dtVigIni:string;
+  ISS_dtVigFim:string;
+
+end;
+
+type TRetornoCabecalho = class
+  CNPJ:string;
+  CNAE:string;
+  CNAESecundario:string;
+  FabricacaoPropria:string;
+  CRT:integer;
+  CodFaixa:integer;
+  Ambiente:integer;
+  Dia:integer;
+  Mes:integer;
+  Ano:integer;
+  DataHora:string;
+  ProdEnv:integer;
+  ProdRet:integer;
+  ComportamentosParceiro:string;
+  ComportamentosCliente:string;
+  Transacao:string;
+  Mensagem:string;
+  AcesPrimeiro:string;
+  AcesExpirar:string;
+  Versao:string;
+  Municipio:string;
+  Duracao:string;
 end;
 
 type TRetornoConsulta = class
@@ -100,6 +205,7 @@ type
     procedure setCRT(const Value: string);
     procedure setCaminhoLog(const Value: string);
     procedure Log(Mensagem:string);
+    procedure JsonEnvioRecebimento(Tipo:Integer; JSON: string);
     procedure setGravaLog(const Value: Boolean);
   protected
 
@@ -110,6 +216,7 @@ type
     RetornoProdDevolvido:TList<TRetornoProdDevovido>;
     RetornaAlterados:TList<TRetornoAlterados>;
     RetornaProdutos:TList<TRetornaProdutos>;
+    RetornoCabecalho:TRetornoCabecalho;
     function ConsultaStatusCliente:Tretorno;
     function ConsultaTributos(Codigo:string; Descricao:string):TRetornoTributos;
     function ConsultaTributosEmLote(CodigoDescricao:Tstringlist):TRetornoTributos;
@@ -300,7 +407,6 @@ begin
        RetornoConsulta      := TList<TRetornoConsulta>.Create;
        RetornoProdDevolvido := TList<TRetornoProdDevovido>.Create;
 
-       //RetornoConsulta := TList<TRetornoConsulta>.Create;
        if Request.Response.StatusCode = 200 then
        begin
              ret := TRetornoConsulta.Create;
@@ -313,13 +419,46 @@ begin
              Detalhes      := Json.GetValue<TJSONArray>('detalhes') as TJSONArray;
              ProdDevolvido := Json.GetValue<TJSONArray>('prodDevolvidos') as TJSONArray;
 
-             ret.ProdutosPendentes_Interno    := StrToInt( Resumo.Values['produtosPendentes_Interno'].Value );
-             ret.ProdutosPendentes_EAN        := StrToInt( Resumo.Values['produtosPendentes_EAN'].Value );
-             ret.ProdutosPendentes_Devolvidos := StrToInt( Resumo.Values['produtosPendentes_Devolvidos'].Value );
-             vdata                            := Copy( Resumo.Values['dataPrimeiroConsumo'].Value,9,2) + '/' + Copy( Resumo.Values['dataPrimeiroConsumo'].Value,6,2) + '/' + Copy( Resumo.Values['dataPrimeiroConsumo'].Value,1,4);
-             ret.ProdutosPendentes_DataInicio := StrTodate(vdata );
-             vdata                            := Copy( Resumo.Values['dataUltimoConsumo'].Value,9,2) + '/' + Copy( Resumo.Values['dataUltimoConsumo'].Value,6,2) + '/' + Copy( Resumo.Values['dataUltimoConsumo'].Value,1,4);
-             ret.ProdutosPendentes_DataUltConsumo := StrTodate(vdata );
+             ret.ProdutosPendentes_Interno        := StrToInt( Resumo.Values['produtosPendentes_Interno'].Value );
+             ret.ProdutosPendentes_EAN            := StrToInt( Resumo.Values['produtosPendentes_EAN'].Value );
+             ret.ProdutosPendentes_Devolvidos     := StrToInt( Resumo.Values['produtosPendentes_Devolvidos'].Value );
+             TRY
+             try
+             vdata                                := Copy( Resumo.Values['dataPrimeiroConsumo'].Value,9,2) + '/' + Copy( Resumo.Values['dataPrimeiroConsumo'].Value,6,2) + '/' + Copy( Resumo.Values['dataPrimeiroConsumo'].Value,1,4);
+             except
+             vdata                                := FormatDateTime('DD/MM/YYYY',Date);
+             end;
+             FINALLY
+
+             END;
+             TRY
+                TRY
+                  ret.ProdutosPendentes_DataInicio     := StrTodate(vdata );
+                except
+                  ret.ProdutosPendentes_DataInicio     := Date;
+                END;
+             FINALLY
+
+             END;
+             TRY
+             TRY
+             vdata                                := Copy( Resumo.Values['dataUltimoConsumo'].Value,9,2) + '/' + Copy( Resumo.Values['dataUltimoConsumo'].Value,6,2) + '/' + Copy( Resumo.Values['dataUltimoConsumo'].Value,1,4);
+             EXCEPT
+             vdata                                := FormatDateTime('DD/MM/YYYY',Date);
+             END;
+             FINALLY
+
+             END;
+             TRY
+                TRY
+                  ret.ProdutosPendentes_DataUltConsumo := StrTodate(vdata );
+                except
+                  ret.ProdutosPendentes_DataUltConsumo := Date;
+                END;
+             FINALLY
+
+             END;
+
 
              for I := 0 to Pred(Detalhes.Count) do
              begin
@@ -340,9 +479,9 @@ begin
                     retProd.Dev_ID          := ProdDevolvidoOBJ.Values['id'].Value;
                     retProd.Dev_Codigo      := ProdDevolvidoOBJ.Values['codigo'].Value;
                     retProd.Dev_Descricao   := ProdDevolvidoOBJ.Values['descricao'].Value;
-                    vdata               := Copy( ProdDevolvidoOBJ.Values['dtinclusao'].Value,9,2) + '/' + Copy( ProdDevolvidoOBJ.Values['dtinclusao'].Value,6,2) + '/' + Copy( ProdDevolvidoOBJ.Values['dtinclusao'].Value,1,4);
+                    vdata                   := Copy( ProdDevolvidoOBJ.Values['dtinclusao'].Value,9,2) + '/' + Copy( ProdDevolvidoOBJ.Values['dtinclusao'].Value,6,2) + '/' + Copy( ProdDevolvidoOBJ.Values['dtinclusao'].Value,1,4);
                     retProd.Dev_dtinclusao  := StrToDate(vdata);
-                    vdata               := Copy( ProdDevolvidoOBJ.Values['dtdevolucao'].Value,9,2) + '/' + Copy( ProdDevolvidoOBJ.Values['dtdevolucao'].Value,6,2) + '/' + Copy( ProdDevolvidoOBJ.Values['dtdevolucao'].Value,1,4);
+                    vdata                   := Copy( ProdDevolvidoOBJ.Values['dtdevolucao'].Value,9,2) + '/' + Copy( ProdDevolvidoOBJ.Values['dtdevolucao'].Value,6,2) + '/' + Copy( ProdDevolvidoOBJ.Values['dtdevolucao'].Value,1,4);
                     retProd.Dev_dtdevolucao := StrToDate(vdata);
                     retProd.Dev_motivo      := ProdDevolvidoOBJ.Values['motivodevolucao'].Value;
 
@@ -491,6 +630,9 @@ begin
           AddBody(vBody, TRESTContentType.ctAPPLICATION_JSON);
        End;
        Try
+          if FGravaLog then
+              JsonEnvioRecebimento(1, vBody );
+
           Request.Execute;
        Except
           on E: Exception do
@@ -510,7 +652,42 @@ begin
 
        if Request.Response.StatusCode = 200 then
        begin
+             if FGravaLog then
+              JsonEnvioRecebimento(2, Request.Response.Content );
+
              Produto   := TJSONObject.ParseJSONValue(Request.Response.Content) as TJSONObject;
+             
+             // Captura dados do cabe�alho
+             var Cabecalho: TJSONObject;
+             if Produto.TryGetValue<TJSONObject>('cabecalho', Cabecalho) then
+             begin
+                RetornoCabecalho.CNPJ := Cabecalho.Values['cnpj'].Value;
+                RetornoCabecalho.CNAE := Cabecalho.Values['cnae'].Value;
+                if not Cabecalho.Values['cnaeSecundario'].Null then
+                   RetornoCabecalho.CNAESecundario := Cabecalho.Values['cnaeSecundario'].Value;
+                if not Cabecalho.Values['fabricacaoPropria'].Null then
+                   RetornoCabecalho.FabricacaoPropria := Cabecalho.Values['fabricacaoPropria'].Value;
+                RetornoCabecalho.CRT := StrToIntDef(Cabecalho.Values['crt'].Value, 0);
+                RetornoCabecalho.CodFaixa := StrToIntDef(Cabecalho.Values['codFaixa'].Value, 0);
+                RetornoCabecalho.Ambiente := StrToIntDef(Cabecalho.Values['amb'].Value, 0);
+                RetornoCabecalho.Dia := StrToIntDef(Cabecalho.Values['dia'].Value, 0);
+                RetornoCabecalho.Mes := StrToIntDef(Cabecalho.Values['mes'].Value, 0);
+                RetornoCabecalho.Ano := StrToIntDef(Cabecalho.Values['ano'].Value, 0);
+                RetornoCabecalho.DataHora := Cabecalho.Values['dthr'].Value;
+                RetornoCabecalho.ProdEnv := StrToIntDef(Cabecalho.Values['prodEnv'].Value, 0);
+                RetornoCabecalho.ProdRet := StrToIntDef(Cabecalho.Values['prodRet'].Value, 0);
+                RetornoCabecalho.ComportamentosParceiro := Cabecalho.Values['comportamentosParceiro'].Value;
+                RetornoCabecalho.ComportamentosCliente := Cabecalho.Values['comportamentosCliente'].Value;
+                RetornoCabecalho.Transacao := Cabecalho.Values['transacao'].Value;
+                RetornoCabecalho.Mensagem := Cabecalho.Values['mensagem'].Value;
+                RetornoCabecalho.AcesPrimeiro := Cabecalho.Values['aces_primeiro'].Value;
+                RetornoCabecalho.AcesExpirar := Cabecalho.Values['aces_expirar'].Value;
+                RetornoCabecalho.Versao := Cabecalho.Values['versao'].Value;
+                if not Cabecalho.Values['municipio'].Null then
+                   RetornoCabecalho.Municipio := Cabecalho.Values['municipio'].Value;
+                RetornoCabecalho.Duracao := Cabecalho.Values['duracao'].Value;
+             end;
+             
              Grupo     := Produto.GetValue<TJSONArray>('grupo') as TJSONArray;
              for I := 0 to pred(Grupo.Count) do
               begin
@@ -525,12 +702,100 @@ begin
                          RegraObj         := Regra.Items[0] as TJSONObject;
                          ret              := TRetornoTributos.Create;
 
-                         ret.StatusCode   := Request.Response.StatusCode;
-                         ret.Mensagem     := Request.Response.Content;  
-                         ret.Codigo       := Item.get(x).Value;
-                         ret.Ncm          := Produto.Values['ncm'].Value.Replace('.','');
-                         ret.Cest         := Produto.Values['cest'].Value.Replace('.','');
-                         ret.Descricao    := Descricao;
+                         // Campos existentes - mantidos
+                         ret.StatusCode      := Request.Response.StatusCode;
+                         ret.Mensagem        := Request.Response.Content;
+                         ret.Codigo          := Item.Items[x].Value;
+                         ret.Ncm             := Produto.Values['ncm'].Value.Replace('.','');
+                         ret.Cest            := Produto.Values['cest'].Value.Replace('.','');
+                         ret.Descricao       := '';
+                         ret.CodEFD          := PisCofins.Values['nri'].Value;
+                         ret.CstIPI          := IPI.Values['cstSai'].Value;
+                         ret.AliqIPI         := StrToFloat(IPI.Values['aliqIPI'].Value.Replace('.',','));
+                         ret.Cst             := RegraObj.Values['cst'].Value;
+                         ret.AliqICMS        := StrToFloat(RegraObj.Values['aliqicms'].Value.Replace('.',','));
+                         ret.Fcp             := StrToFloat(RegraObj.Values['fcp'].Value.Replace('.',','));
+                         ret.CFOPVenda       := RegraObj.Values['cfopVenda'].Value;
+                         ret.CFOPCompra      := RegraObj.Values['cfopCompra'].Value;
+                         ret.ReducaoAliqICMS := StrToFloat( RegraObj.Values['reducaobcicms'].Value.Replace('.',',') );
+                         ret.AmpLegal        := RegraObj.Values['ampLegal'].Value.Replace('''','');
+
+                         // Novos campos - Grupo (produto)
+                         ret.Lista           := Produto.Values['lista'].Value;
+                         ret.Tipo            := Produto.Values['tipo'].Value;
+                         ret.CodAnp          := Produto.Values['codanp'].Value;
+
+                         // Novos campos - PIS/COFINS
+                         ret.CstPisCofinsEnt    := PisCofins.Values['cstEnt'].Value;
+                         ret.NriPisCofins       := PisCofins.Values['nri'].Value;
+                         ret.AmpLegalPisCofins  := PisCofins.Values['ampLegal'].Value;
+                         ret.DtVigIniPisCofins  := PisCofins.Values['dtVigIni'].Value;
+                         if not PisCofins.Values['dtVigFin'].Null then
+                            ret.DtVigFimPisCofins := PisCofins.Values['dtVigFin'].Value
+                         else
+                            ret.DtVigFimPisCofins := '';
+
+                         // Novos campos - IPI
+                         ret.CstIPIEnt := IPI.Values['cstEnt'].Value;
+                         ret.CodEnqIPI := IPI.Values['codenq'].Value;
+                         ret.ExIPI     := IPI.Values['ex'].Value;
+
+                         // Novos campos - CBS (se existir)
+                         var CBS: TJSONObject;
+                         if Produto.TryGetValue<TJSONObject>('cbs', CBS) then
+                         begin
+                            ret.CBS_cClassTrib       := CBS.Values['cClassTrib'].Value;
+                            ret.CBS_descrcClassTrib  := CBS.Values['descrcClassTrib'].Value;
+                            ret.CBS_cst              := CBS.Values['cst'].Value;
+                            ret.CBS_descrCST         := CBS.Values['descrCST'].Value;
+                            ret.CBS_aliquota         := StrToFloat(CBS.Values['aliquota'].Value.Replace('.',','));
+                            ret.CBS_reducao          := StrToFloat(CBS.Values['reducao'].Value.Replace('.',','));
+                            ret.CBS_reducaoBcCBS     := StrToFloat(CBS.Values['reducaoBcCBS'].Value.Replace('.',','));
+                            ret.CBS_ampLegal         := CBS.Values['ampLegal'].Value;
+                            ret.CBS_dtVigIni         := CBS.Values['dtVigIni'].Value;
+                            ret.CBS_dtVigFim         := CBS.Values['dtVigFin'].Value;
+                         end;
+
+                         // Novos campos - REGRA
+                         ret.RegraUF              := RegraObj.Values['uf'].Value;
+                         ret.RegraExcecao         := StrToInt(RegraObj.Values['excecao'].Value);
+                         ret.PICMSPDVRegra        := StrToFloat(RegraObj.Values['pICMSPDV'].Value.Replace('.',','));
+                         ret.SimbPDVRegra         := RegraObj.Values['simbPDV'].Value;
+                         ret.CSOSN                := RegraObj.Values['csosn'].Value;
+                         ret.ReducaoBCICMSST      := StrToFloat(RegraObj.Values['reducaobcicmsst'].Value.Replace('.',','));
+                         ret.AliqICMSST           := StrToFloat(RegraObj.Values['aliqicmsst'].Value.Replace('.',','));
+                         ret.IVA                  := StrToFloat(RegraObj.Values['iva'].Value.Replace('.',','));
+                         ret.CodBeneficio         := RegraObj.Values['codBenef'].Value;
+                         ret.PDifer               := StrToFloat(RegraObj.Values['pDifer'].Value.Replace('.',','));
+                         ret.Antecipado           := RegraObj.Values['antecipado'].Value;
+                         ret.Desonerado           := RegraObj.Values['desonerado'].Value;
+                         ret.ICMSDeson            := StrToFloat(RegraObj.Values['icmsdeson'].Value.Replace('.',','));
+                         ret.PICMSEfet            := StrToFloat(RegraObj.Values['pICMSEfet'].Value.Replace('.',','));
+                         ret.PRedBCEfet           := StrToFloat(RegraObj.Values['pRedBCEfet'].Value.Replace('.',','));
+                         ret.PercIsencao          := StrToFloat(RegraObj.Values['percIsencao'].Value.Replace('.',','));
+                         ret.ESTDFinalidade       := RegraObj.Values['estd_finalidade'].Value;
+                         ret.DtVigIniRegra        := RegraObj.Values['dtVigIni'].Value;
+                         ret.DtVigFimRegra        := RegraObj.Values['dtVigFin'].Value;
+                         ret.InicioVigencia       := RegraObj.Values['dtVigIni'].Value;
+                         ret.FimVigencia          := RegraObj.Values['dtVigFin'].Value;
+                         ret.IndicDeduzDesonerado := RegraObj.Values['IndicDeduzDesonerado'].Value;
+
+                         // Novos campos - IBS (dentro de regra)
+                         var IBS: TJSONObject;
+                          if RegraObj.TryGetValue<TJSONObject>('ibs', IBS) then
+                          begin
+                            ret.IBS_cClassTrib      := IBS.Values['cClassTrib'].Value;
+                            ret.IBS_descrcClassTrib := IBS.Values['descrcClassTrib'].Value;
+                            ret.IBS_cst             := IBS.Values['cst'].Value;
+                            ret.IBS_descrCST        := IBS.Values['descrCST'].Value;
+                            ret.IBS_ibsUF           := StrToFloat(IBS.Values['ibsUF'].Value.Replace('.',','));
+                            ret.IBS_ibsMun          := StrToFloat(IBS.Values['ibsMun'].Value.Replace('.',','));
+                            ret.IBS_reducaoaliqIBS  := StrToFloat(IBS.Values['reducaoaliqIBS'].Value.Replace('.',','));
+                            ret.IBS_reducaoBcIBS    := StrToFloat(IBS.Values['reducaoBcIBS'].Value.Replace('.',','));
+                            ret.IBS_ampLegal        := IBS.Values['ampLegal'].Value;
+                            ret.IBS_dtVigIni        := IBS.Values['dtVigIni'].Value;
+                            ret.IBS_dtVigFim        := IBS.Values['dtVigFin'].Value;
+                         end;
 
                          if FRegime =  SimplesNacional then
                          begin
@@ -543,20 +808,33 @@ begin
                              end else begin
                                  ret.CstPisCofins := PisCofins.Values['cstSai'].Value;
                              end;
-                         end else begin
-                             ret.CstPisCofins := PisCofins.Values['cstSai'].Value;
+                             ret.AliqPis      := 0;
+                             ret.AliqCofins   := 0;
+                         end else if FRegime = LucroPresumido then
+                         begin
+                             if PisCofins.Values['cstSai'].Value = '01' then
+                             begin
+                                   ret.CstPisCofins := PisCofins.Values['cstSai'].Value;
+                                   ret.AliqPis      := 0.65;
+                                   ret.AliqCofins   := 3.00;
+                             end else begin
+                                   ret.CstPisCofins := PisCofins.Values['cstSai'].Value;
+                                   ret.AliqPis      := StrToFloat(PisCofins.Values['aliqPIS'].Value.Replace('.',','));
+                                   ret.AliqCofins   := StrToFloat(PisCofins.Values['aliqCOFINS'].Value.Replace('.',','));
+                             end;
+                         end else if FRegime = LucroReal then
+                         begin
+                             if PisCofins.Values['cstSai'].Value = '01' then
+                             begin
+                                   ret.CstPisCofins := PisCofins.Values['cstSai'].Value;
+                                   ret.AliqPis      := 1.65;
+                                   ret.AliqCofins   := 7.60;
+                             end else begin
+                                   ret.CstPisCofins := PisCofins.Values['cstSai'].Value;
+                                   ret.AliqPis      := StrToFloat(PisCofins.Values['aliqPIS'].Value.Replace('.',','));
+                                   ret.AliqCofins   := StrToFloat(PisCofins.Values['aliqCOFINS'].Value.Replace('.',','));
+                             end;
                          end;
-
-                         ret.AliqPis      := StrToFloat(PisCofins.Values['aliqPIS'].Value);
-                         ret.AliqCofins   := StrToFloat(PisCofins.Values['aliqCOFINS'].Value);
-                         ret.CodEFD       := PisCofins.Values['nri'].Value;
-                         ret.CstIPI       := IPI.Values['cstSai'].Value;
-                         ret.AliqIPI      := StrToFloat(IPI.Values['aliqIPI'].Value);
-                         ret.Cst          := RegraObj.Values['cst'].Value;
-                         ret.AliqICMS     := StrToFloat(RegraObj.Values['aliqicms'].Value);
-                         ret.Fcp          := StrToFloat(RegraObj.Values['fcp'].Value);
-                         ret.CFOPVenda    := RegraObj.Values['cfopVenda'].Value;
-                         ret.CFOPCompra   := RegraObj.Values['cfopCompra'].Value;
 
                          RetornoTributos.Add(ret);
                    end;
@@ -660,6 +938,9 @@ begin
           AddBody(vBody, TRESTContentType.ctAPPLICATION_JSON);
        End;
        Try
+          if FGravaLog then
+            JsonEnvioRecebimento(1, vBody );
+
           Request.Execute;
        Except
           on E: Exception do
@@ -679,6 +960,9 @@ begin
 
        if Request.Response.StatusCode = 200 then
        begin
+             if FGravaLog then
+              JsonEnvioRecebimento(2, Request.Response.Content );
+
              Produto   := TJSONObject.ParseJSONValue(Request.Response.Content) as TJSONObject;
              Grupo     := Produto.GetValue<TJSONArray>('grupo') as TJSONArray;
              for I := 0 to pred(Grupo.Count) do
@@ -691,26 +975,142 @@ begin
                    Item      := Produto.GetValue<TJSONArray>('produto') as TJSONArray;
                    for x := 0 to pred(Item.Count) do
                    begin
-                         RegraObj         := Regra.Items[0] as TJSONObject;
-                         ret              := TRetornoTributos.Create;
+                         RegraObj            := Regra.Items[0] as TJSONObject;
+                         ret                 := TRetornoTributos.Create;
 
-                         ret.StatusCode   := Request.Response.StatusCode;
-                         ret.Mensagem     := Request.Response.Content;  
-                         ret.Codigo       := Item.get(x).Value;
-                         ret.Ncm          := Produto.Values['ncm'].Value.Replace('.','');
-                         ret.Cest         := Produto.Values['cest'].Value.Replace('.','');
-                         ret.Descricao    := '';
-                         ret.CstPisCofins := PisCofins.Values['cstSai'].Value;
-                         ret.AliqPis      := StrToFloat(PisCofins.Values['aliqPIS'].Value);
-                         ret.AliqCofins   := StrToFloat(PisCofins.Values['aliqCOFINS'].Value);
-                         ret.CodEFD       := PisCofins.Values['nri'].Value;
-                         ret.CstIPI       := IPI.Values['cstSai'].Value;
-                         ret.AliqIPI      := StrToFloat(IPI.Values['aliqIPI'].Value);
-                         ret.Cst          := RegraObj.Values['cst'].Value;
-                         ret.AliqICMS     := StrToFloat(RegraObj.Values['aliqicms'].Value);
-                         ret.Fcp          := StrToFloat(RegraObj.Values['fcp'].Value);
-                         ret.CFOPVenda    := RegraObj.Values['cfopVenda'].Value;
-                         ret.CFOPCompra   := RegraObj.Values['cfopCompra'].Value;
+                         // Campos existentes - mantidos
+                         ret.StatusCode      := Request.Response.StatusCode;
+                         ret.Mensagem        := Request.Response.Content;
+                         ret.Codigo          := Item.Items[x].Value;
+                         ret.Ncm             := Produto.Values['ncm'].Value.Replace('.','');
+                         ret.Cest            := Produto.Values['cest'].Value.Replace('.','');
+                         ret.Descricao       := '';
+                         ret.CodEFD          := PisCofins.Values['nri'].Value;
+                         ret.CstIPI          := IPI.Values['cstSai'].Value;
+                         ret.AliqIPI         := StrToFloat(IPI.Values['aliqIPI'].Value.Replace('.',','));
+                         ret.Cst             := RegraObj.Values['cst'].Value;
+                         ret.AliqICMS        := StrToFloat(RegraObj.Values['aliqicms'].Value.Replace('.',','));
+                         ret.Fcp             := StrToFloat(RegraObj.Values['fcp'].Value.Replace('.',','));
+                         ret.CFOPVenda       := RegraObj.Values['cfopVenda'].Value;
+                         ret.CFOPCompra      := RegraObj.Values['cfopCompra'].Value;
+                         ret.ReducaoAliqICMS := StrToFloat( RegraObj.Values['reducaobcicms'].Value.Replace('.',',') );
+                         ret.AmpLegal        := RegraObj.Values['ampLegal'].Value.Replace('''','');
+
+                         // Novos campos - Grupo (produto)
+                         ret.Lista           := Produto.Values['lista'].Value;
+                         ret.Tipo            := Produto.Values['tipo'].Value;
+                         ret.CodAnp          := Produto.Values['codanp'].Value;
+
+                         // Novos campos - PIS/COFINS
+                         ret.CstPisCofinsEnt    := PisCofins.Values['cstEnt'].Value;
+                         ret.NriPisCofins       := PisCofins.Values['nri'].Value;
+                         ret.AmpLegalPisCofins  := PisCofins.Values['ampLegal'].Value;
+                         ret.DtVigIniPisCofins  := PisCofins.Values['dtVigIni'].Value;
+                         if not PisCofins.Values['dtVigFin'].Null then
+                            ret.DtVigFimPisCofins := PisCofins.Values['dtVigFin'].Value
+                         else
+                            ret.DtVigFimPisCofins := '';
+
+                         // Novos campos - IPI
+                         ret.CstIPIEnt := IPI.Values['cstEnt'].Value;
+                         ret.CodEnqIPI := IPI.Values['codenq'].Value;
+                         ret.ExIPI     := IPI.Values['ex'].Value;
+
+                         // Novos campos - CBS (se existir)
+                         var CBS: TJSONObject;
+                         if Produto.TryGetValue<TJSONObject>('cbs', CBS) then
+                         begin
+                            ret.CBS_cClassTrib       := CBS.Values['cClassTrib'].Value;
+                            ret.CBS_descrcClassTrib  := CBS.Values['descrcClassTrib'].Value;
+                            ret.CBS_cst              := CBS.Values['cst'].Value;
+                            ret.CBS_descrCST         := CBS.Values['descrCST'].Value;
+                            ret.CBS_aliquota         := StrToFloat(CBS.Values['aliquota'].Value.Replace('.',','));
+                            ret.CBS_reducao          := StrToFloat(CBS.Values['reducao'].Value.Replace('.',','));
+                            ret.CBS_reducaoBcCBS     := StrToFloat(CBS.Values['reducaoBcCBS'].Value.Replace('.',','));
+                            ret.CBS_ampLegal         := CBS.Values['ampLegal'].Value;
+                            ret.CBS_dtVigIni         := CBS.Values['dtVigIni'].Value;
+                            ret.CBS_dtVigFim         := CBS.Values['dtVigFin'].Value;
+                         end;
+
+                         // Novos campos - REGRA
+                         ret.RegraUF              := RegraObj.Values['uf'].Value;
+                         ret.RegraExcecao         := StrToInt(RegraObj.Values['excecao'].Value);
+                         ret.PICMSPDVRegra        := StrToFloat(RegraObj.Values['pICMSPDV'].Value.Replace('.',','));
+                         ret.SimbPDVRegra         := RegraObj.Values['simbPDV'].Value;
+                         ret.CSOSN                := RegraObj.Values['csosn'].Value;
+                         ret.ReducaoBCICMSST      := StrToFloat(RegraObj.Values['reducaobcicmsst'].Value.Replace('.',','));
+                         ret.AliqICMSST           := StrToFloat(RegraObj.Values['aliqicmsst'].Value.Replace('.',','));
+                         ret.IVA                  := StrToFloat(RegraObj.Values['iva'].Value.Replace('.',','));
+                         ret.CodBeneficio         := RegraObj.Values['codBenef'].Value;
+                         ret.PDifer               := StrToFloat(RegraObj.Values['pDifer'].Value.Replace('.',','));
+                         ret.Antecipado           := RegraObj.Values['antecipado'].Value;
+                         ret.Desonerado           := RegraObj.Values['desonerado'].Value;
+                         ret.ICMSDeson            := StrToFloat(RegraObj.Values['icmsdeson'].Value.Replace('.',','));
+                         ret.PICMSEfet            := 0;// StrToFloat(RegraObj.Values['pICMSEfet'].Value.Replace('.',','));
+                         ret.PRedBCEfet           := 0;// StrToFloat(RegraObj.Values['pRedBCEfet'].Value.Replace('.',','));
+                         ret.PercIsencao          := 0;// StrToFloat(RegraObj.Values['percIsencao'].Value.Replace('.',','));
+                         ret.ESTDFinalidade       := RegraObj.Values['estd_finalidade'].Value;
+                         ret.DtVigIniRegra        := RegraObj.Values['dtVigIni'].Value;
+                         ret.DtVigFimRegra        := RegraObj.Values['dtVigFin'].Value;
+                         ret.InicioVigencia       := RegraObj.Values['dtVigIni'].Value;
+                         ret.FimVigencia          := RegraObj.Values['dtVigFin'].Value;
+                         ret.IndicDeduzDesonerado := RegraObj.Values['IndicDeduzDesonerado'].Value;
+
+                         // Novos campos - IBS (dentro de regra)
+                         var IBS: TJSONObject;
+                         if RegraObj.TryGetValue<TJSONObject>('ibs', IBS) then
+                         begin
+                            ret.IBS_cClassTrib      := IBS.Values['cClassTrib'].Value;
+                            ret.IBS_descrcClassTrib := IBS.Values['descrcClassTrib'].Value;
+                            ret.IBS_cst             := IBS.Values['cst'].Value;
+                            ret.IBS_descrCST        := IBS.Values['descrCST'].Value;
+                            ret.IBS_ibsUF           := StrToFloat(IBS.Values['ibsUF'].Value.Replace('.',','));
+                            ret.IBS_ibsMun          := StrToFloat(IBS.Values['ibsMun'].Value.Replace('.',','));
+                            ret.IBS_reducaoaliqIBS  := StrToFloat(IBS.Values['reducaoaliqIBS'].Value.Replace('.',','));
+                            ret.IBS_reducaoBcIBS    := StrToFloat(IBS.Values['reducaoBcIBS'].Value.Replace('.',','));
+                            ret.IBS_ampLegal        := IBS.Values['ampLegal'].Value;
+                            ret.IBS_dtVigIni        := IBS.Values['dtVigIni'].Value;
+                            ret.IBS_dtVigFim        := IBS.Values['dtVigFin'].Value;
+                         end;
+
+                         if FRegime =  SimplesNacional then
+                         begin
+                             if PisCofins.Values['cstSai'].Value = '01' then
+                             begin
+                                 ret.CstPisCofins := '49';
+                             end else if PisCofins.Values['cstSai'].Value = '06' then
+                             begin
+                                 ret.CstPisCofins := '49';
+                             end else begin
+                                 ret.CstPisCofins := PisCofins.Values['cstSai'].Value;
+                             end;
+                             ret.AliqPis      := 0;
+                             ret.AliqCofins   := 0;
+                         end else if FRegime = LucroPresumido then
+                         begin
+                             if PisCofins.Values['cstSai'].Value = '01' then
+                             begin
+                                   ret.CstPisCofins := PisCofins.Values['cstSai'].Value;
+                                   ret.AliqPis      := 0.65;
+                                   ret.AliqCofins   := 3.00;
+                             end else begin
+                                   ret.CstPisCofins := PisCofins.Values['cstSai'].Value;
+                                   ret.AliqPis      := StrToFloat(PisCofins.Values['aliqPIS'].Value.Replace('.',','));
+                                   ret.AliqCofins   := StrToFloat(PisCofins.Values['aliqCOFINS'].Value.Replace('.',','));
+                             end;
+                         end else if FRegime = LucroReal then
+                         begin
+                             if PisCofins.Values['cstSai'].Value = '01' then
+                             begin
+                                   ret.CstPisCofins := PisCofins.Values['cstSai'].Value;
+                                   ret.AliqPis      := 1.65;
+                                   ret.AliqCofins   := 7.60;
+                             end else begin
+                                   ret.CstPisCofins := PisCofins.Values['cstSai'].Value;
+                                   ret.AliqPis      := StrToFloat(PisCofins.Values['aliqPIS'].Value.Replace('.',','));
+                                   ret.AliqCofins   := StrToFloat(PisCofins.Values['aliqCOFINS'].Value.Replace('.',','));
+                             end;
+                         end;
 
                          RetornoTributos.Add(ret);
                    end;
@@ -733,6 +1133,7 @@ begin
   RetornoProdDevolvido := TList<TRetornoProdDevovido>.Create;
   RetornaAlterados := TList<TRetornoAlterados>.Create;
   RetornaProdutos := TList<TRetornaProdutos>.Create;
+  RetornoCabecalho := TRetornoCabecalho.Create;
 end;
 
 destructor TDTImendes.Destroy;
@@ -748,7 +1149,48 @@ begin
         FreeAndNil(RetornoProdDevolvido);
         FreeAndNil(RetornaProdutos);
         FreeAndNil(RetornaAlterados);
+        FreeAndNil(RetornoCabecalho);
   inherited Destroy;
+end;
+
+procedure TDTImendes.JsonEnvioRecebimento(Tipo:Integer; JSON: string);
+var
+  NomeArquivo: string;
+  Arquivo: TextFile;
+begin
+    try
+        try
+           if GravaLog then
+           begin
+                if CaminhoLog<>'' then
+                begin
+                    if not DirectoryExists(FCaminhoLog) then
+                        ForceDirectories(FCaminhoLog);
+
+                    if Tipo = 1 then
+                      NomeArquivo := ChangeFileExt(FCaminhoLog, '\JsonEnviado_'  + FormatDateTime('DD_MM_YYYYhhmmss',Now)+'.json')
+                    else
+                      NomeArquivo := ChangeFileExt(FCaminhoLog, '\JsonRecebido_' + FormatDateTime('DD_MM_YYYYhhmmss',Now)+'.json');
+
+                    AssignFile(Arquivo, NomeArquivo);
+                    if FileExists(NomeArquivo) then
+                      Append(arquivo)
+                    else
+                      ReWrite(arquivo);
+
+                    try
+                      WriteLn(arquivo, JSON );
+                    finally
+                      CloseFile(arquivo);
+                    end;
+
+                end;
+           end;
+        except
+        end;
+    finally
+    end;
+
 end;
 
 function TDTImendes.ListaProdutos(Descricao: string): TRetornaProdutos;
@@ -1021,3 +1463,4 @@ begin
 end;
 
 end.
+
